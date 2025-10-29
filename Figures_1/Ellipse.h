@@ -8,8 +8,8 @@ class Ellipse : public Figure {
 public:
  Ellipse(double a, double b) : a(a), b(b) {}
  Ellipse() = default;
- double perimeter() const;
- double area() const;
+ double perimeter() const override;
+ double area() const override;
 };
 
 class Circle : public Ellipse {
@@ -17,6 +17,6 @@ class Circle : public Ellipse {
   Circle(double r) : r(r) {}
 
  public:
-  double perimeter() const;
-  double area() const;
+  double perimeter() const override;
+  double area() const override;
 };
