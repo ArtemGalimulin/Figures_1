@@ -22,8 +22,7 @@ double IsoscelesTriangle::perimeter() const {
 
 EquilateralTriangle::EquilateralTriangle(double side)
     : IsoscelesTriangle(side, side) {}
-double EquilateralTriangle::area() const {
-  return (std::sqrt(3) / 4) * a * a;
+double EquilateralTriangle::area() const { return (std::sqrt(3) / 4) * a * a; }
 double EquilateralTriangle::perimeter() const {
   return 3 * a;
 }
@@ -33,8 +32,8 @@ double Rectangle::area() const { return a * b; }
 double Rectangle::perimeter() const { return 2 * (a + b); }
 
 Square::Square(double s1) : a(s1) {}
-double Square::area() const override { return a * a; }
-double Square::perimeter() const override { return 4 * a; }
+double Square::area() const { return a * a; }
+double Square::perimeter() const { return 4 * a; }
 
 Parallelogram::Parallelogram(double s1, double s2, double s3)
     : a(s1), b(s2), h(s3) {}
