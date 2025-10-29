@@ -3,8 +3,13 @@
 #include <cmath>
 
 class Polygon : public Figure {
+<<<<<<< HEAD
   double virtual perimeter() const {}
   double virtual area() const {}
+=======
+	double virtual perimeter() const = 0;
+	double virtual area() const = 0;
+>>>>>>> fc14c6882778936a75e9f1bcbbf5d7ff348cbaa4
 };
 
 class Triangle : public Polygon {
@@ -49,9 +54,28 @@ public:
 };
 
 class Parallelogram : public Polygon {
-
+private:
+	double a, b, h;
+public:
+	Parallelogram(double s1, double s2, double s3) : a(s1) , b(s2), h(s3){};
+	Parallelogram() = default;
+	double area() const override {
+		return a * h;;
+	}
+	double perimeter() const override {
+		return (a + b) * 2;
+	}
 };
 
 class Rhomb : public Parallelogram {
-
+private:
+	double a, d1, d2;
+public:
+	Rhomb(double s1, double s2, double s3) : a(s1), d1(s2), d2(s3) {};
+	double area() const override {
+		return 0.5 * d1 * d2;
+	}
+	double perimeter() const override {
+		return a * 4;
+	}
 };
