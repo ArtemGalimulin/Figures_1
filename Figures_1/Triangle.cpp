@@ -1,5 +1,3 @@
 #include "Triangle.h"
 
-class Triangle {
-
-};
+double Triangle::perimeter() const { return 1; }

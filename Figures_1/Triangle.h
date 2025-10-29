@@ -1,2 +1,4 @@
 #pragma once
-class Triangle {};
+class Triangle : public Figure {
+  double perimeter() const;
+};
