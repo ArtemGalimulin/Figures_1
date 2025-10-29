@@ -1,15 +1,28 @@
 #pragma once
 #include "Figure.h"
 
-class Polygon : public Figure {
-};
+class Polygon : public Figure {};
 
 class Triangle : public Polygon {
- private:
+ protected:
   double a, b, c;
 
  public:
   Triangle(double s1, double s2, double s3);
+  double area() const override;
+  double perimeter() const override;
+};
+
+class IsoscelesTriangle : public Triangle {
+ public:
+  IsoscelesTriangle(double base, double equalSide);
+  double area() const override;
+  double perimeter() const override;
+};
+
+class EquilateralTriangle : public IsoscelesTriangle {
+ public:
+  EquilateralTriangle(double side);
   double area() const override;
   double perimeter() const override;
 };
