@@ -2,19 +2,19 @@
 #include "Figure.h"
 
 class Ellipse : public Figure { 
- double a = 1.0;
- double b = 1.0;
+protected:
+ double a;
+ double b;
 
 public:
- Ellipse(double a, double b) : a(a), b(b) {}
- Ellipse() = default;
+ Ellipse(double a, double b);
  double perimeter() const override;
  double area() const override;
 };
 
 class Circle : public Ellipse {
-  double r;
-  Circle(double r) : r(r) {}
+ public:
+  Circle(double r) : Ellipse(r, r) {}
 
  public:
   double perimeter() const override;

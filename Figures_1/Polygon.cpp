@@ -1,12 +1,10 @@
-
-
 #include "Polygon.h"
-#include "Figure.cpp"
-
+#include "Figure.h"
 #include <cmath>
 
 class Polygon : public Figure {
-	//too hard
+  double virtual perimeter() const {}
+  double virtual area() const {}
 };
 
 class Triangle : public Polygon {
