@@ -1,3 +1,3 @@
 #pragma once
-#include "Figure.h"
+#include "Figure.cpp"
 class Ellipse : public Figure {};

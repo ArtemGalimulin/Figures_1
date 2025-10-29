@@ -1,2 +1,2 @@
 #pragma once
-class Figure {};
+class Figure;
