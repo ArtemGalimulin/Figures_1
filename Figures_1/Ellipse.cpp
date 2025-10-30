@@ -8,5 +8,6 @@ double Ellipse::perimeter() const {
 }
 double Ellipse::area() const { return 3.14 * a * b; }
 
+Circle::Circle(double r) : Ellipse(r, r) {}
 double Circle::perimeter() const { return 2 * 3.14 * a; }
 double Circle::area() const { return 3.14 * a * a; }

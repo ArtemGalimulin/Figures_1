@@ -14,9 +14,7 @@ public:
 
 class Circle : public Ellipse {
  public:
-  Circle(double r) : Ellipse(r, r) {}
-
- public:
+  Circle(double r);
   double perimeter() const override;
   double area() const override;
 };
