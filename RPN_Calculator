@@ -1,0 +1,282 @@
+#include <algorithm>
+#include <cmath>
+#include <exception>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <stack>
+#include <string>
+
+// тут исключения
+class CalculatorException : public std::exception {
+  std::string message;
+
+ public:
+  explicit CalculatorException(const std::string& msg) : message(msg) {}
+  const char* what() const noexcept override { return message.c_str(); }
+};
+
+class EmptyStackException : public CalculatorException {
+ public:
+  explicit EmptyStackException()
+      : CalculatorException("Not enough data on the stack") {}
+};
+
+class ExtraDataException : public CalculatorException {
+ public:
+  explicit ExtraDataException()
+      : CalculatorException("Extra data left on the stack") {}
+};
+
+class DefinitionException : public CalculatorException {
+ public:
+  explicit DefinitionException()
+      : CalculatorException("The argument is not in the domain of definition") {
+  }
+};
+
+class ZeroDivisionException : public CalculatorException {
+ public:
+  explicit ZeroDivisionException() : CalculatorException("Division by zero") {}
+};
+
+// тут операции
+class Operation {
+ protected:
+  double GetArgument(std::stack<double>& stack) const {
+    if (stack.empty()) {
+      throw EmptyStackException();
+    }
+    double val = stack.top();
+    stack.pop();
+    return val;
+  }
+
+ public:
+  virtual void Execute(std::stack<double>& stack) const = 0;
+};
+
+// унарные
+class Sin : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    stack.push(sin(a));
+  }
+};
+
+class Cos : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    stack.push(cos(a));
+  }
+};
+
+class Tg : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    stack.push(tan(a));
+  }
+};
+
+class Ctg : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double tg = tan(GetArgument(stack));
+    if (tg == 0) {
+      throw DefinitionException();
+    }
+    stack.push(1.0 / tg);
+  }
+};
+
+class Exp : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    stack.push(exp(a));
+  }
+};
+
+class Log : public Operation { // натуральный логарифм
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    if (a <= 0) {
+      throw DefinitionException();
+    }
+    stack.push(log(a));
+  }
+};
+
+class Sqrt : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a = GetArgument(stack);
+    if (a < 0) {
+      throw DefinitionException();
+    }
+    stack.push(sqrt(a));
+  }
+};
+
+// бинарные
+class Plus : public Operation {
+ public:
+   void Execute(std::stack<double>& stack) const override {
+     double b = GetArgument(stack);
+     double a = GetArgument(stack);
+     stack.push(a + b);
+  }
+};
+
+class Minus : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double b = GetArgument(stack);
+    double a = GetArgument(stack);
+    stack.push(a - b);
+  }
+};
+
+class Product : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double b = GetArgument(stack);
+    double a = GetArgument(stack);
+    stack.push(a * b);
+  }
+};
+
+class Division : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double b = GetArgument(stack);
+    double a = GetArgument(stack);
+    if (b == 0) {
+      throw ZeroDivisionException();
+    }
+    stack.push(a / b);
+  }
+};
+
+class Atan2 : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double b = GetArgument(stack);
+    double a = GetArgument(stack);
+    if (a == 0 && b == 0) {
+      throw DefinitionException();
+    }
+    stack.push(atan2(a, b));
+  }
+};
+
+class Pow : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double b = GetArgument(stack);
+    double a = GetArgument(stack);
+    if (a <= 0) {
+      throw DefinitionException();
+    }
+    stack.push(pow(a, b));
+  }
+};
+
+// тернарная операция
+class Median : public Operation {
+ public:
+  void Execute(std::stack<double>& stack) const override {
+    double a[3];
+    a[2] = GetArgument(stack);
+    a[1] = GetArgument(stack);
+    a[0] = GetArgument(stack);
+    std::sort(a, a + 3);
+    stack.push(a[1]);
+  }
+};
+
+// тут сам калькулятор
+class Calculator {
+  std::stack<double> stack;
+  std::map<std::string, Operation*> operations;
+
+ public:
+  double Calculate(std::string expression) {
+    while (!stack.empty()) {
+      stack.pop();
+    }
+
+    std::istringstream iss(expression);
+    std::string com;
+    while (iss >> com) {
+      if (operations.find(com) != operations.end()) {
+        operations[com]->Execute(stack);
+      } else {
+        try {
+          stack.push(std::stod(com));
+        } catch (const std::exception& e) {
+          throw CalculatorException("Invalid data: " + com);
+        }
+      }
+    }
+    if (stack.empty()) {
+      throw EmptyStackException();
+    }
+    if (stack.size() > 1) {
+      throw ExtraDataException();
+    }
+    double ans = stack.top();
+    stack.pop();
+    return ans;
+  }
+
+  Calculator() {
+     operations["+"] = new Plus;
+     operations["-"] = new Minus;
+     operations["*"] = new Product;
+     operations["/"] = new Division;
+     operations["sin"] = new Sin;
+     operations["cos"] = new Cos;
+     operations["tg"] = new Tg;
+     operations["ctg"] = new Ctg;
+     operations["exp"] = new Exp;
+     operations["log"] = new Log;
+     operations["sqrt"] = new Sqrt;
+     operations["atan2"] = new Atan2;
+     operations["pow"] = new Pow;
+     operations["median"] = new Median;
+  }
+
+  ~Calculator() {
+    for (auto& op : operations) {
+      delete op.second;
+    }
+  }
+};
+
+int main() {
+  Calculator calc;
+  try {
+    calc.Calculate("5 0 /");
+  } catch (const std::exception& e) {
+    std::cout << e.what() << '\n';
+  }
+
+  try {
+    calc.Calculate("2 +");
+  } catch (const std::exception& e) {
+    std::cout << e.what() << '\n';
+  }
+
+  try {
+    calc.Calculate("2 3 4 +");
+  } catch (const std::exception& e) {
+    std::cout << e.what() << '\n';
+  }
+  std::cout << calc.Calculate("10 2 /") << '\n';
+  std::cout << calc.Calculate("3 4 2 * +") << '\n';
+}
