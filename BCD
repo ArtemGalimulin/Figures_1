@@ -1,0 +1,517 @@
+#include<cmath>
+#include <exception>
+#include <iostream>
+#include <vector>
+
+const int int_min = -1e10;
+const int int_max = 1e10;
+const int int_size = 10;
+
+class IntegerPartOverflow : public std::exception {
+ public:
+  const char* what() const noexcept override {
+    return "Integer part overflow in BCD";
+  }
+};
+
+class BCD {
+  int precision = 0;
+  bool sign = false;  // true if negative
+  int integer[int_size];
+  std::vector<int> fractional;
+
+  static bool AbsLess(const BCD& a, const BCD& b) {
+    for (int i = 0; i < int_size; ++i) {
+      if (a.integer[i] < b.integer[i]) {
+        return true;
+      }
+      if (a.integer[i] > b.integer[i]) {
+        return false;
+      }
+    }
+
+    int com_precision = std::min(a.precision, b.precision);
+    for (int i = 0; i < com_precision; ++i) {
+      if (a.fractional[i] < b.fractional[i]) {
+        return true;
+      }
+      if (a.fractional[i] > b.fractional[i]) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  static void AbsUnoAdd(BCD& a, const BCD& b, int com_prec) {
+    // чекнуть переполнение
+    int buf = 0;
+    int digit;
+    for (int i = com_prec - 1; i >= 0; --i) {
+      digit = a.fractional[i] + b.fractional[i] + buf;
+      buf = digit / 10;
+      a.fractional[i] = digit % 10;
+    }
+    for (int i = int_size - 1; i >= 0; --i) {
+      digit = a.integer[i] + b.integer[i] + buf;
+      buf = digit / 10;
+      a.integer[i] = digit % 10;
+    }
+
+    int a_int_size = 0;
+    while (a.integer[a_int_size] == 0) {
+      ++a_int_size;
+    }
+    a_int_size = int_size - a_int_size;
+
+    int b_int_size = 0;
+    while (b.integer[b_int_size] == 0) {
+      ++b_int_size;
+    }
+    b_int_size = int_size - b_int_size;
+
+    if (std::max(a_int_size, b_int_size) + buf > int_size) {
+      throw IntegerPartOverflow();
+    }
+  }
+
+  static void AbsUnoSubstruct(BCD& a, const BCD& b, int com_prec) {
+    // works if abs(a) >= abs(b)
+    int buf = 0;
+    int digit;
+    for (int i = com_prec - 1; i >= 0; --i) {
+      digit = a.fractional[i] - b.fractional[i] + buf;
+      buf = 0;
+      if (digit < 0) {
+        digit += 10;
+        buf = -1;
+      }
+
+      a.fractional[i] = digit;
+    }
+    for (int i = int_size - 1; i >= 0; --i) {
+      digit = a.integer[i] - b.integer[i] + buf;
+      buf = 0;
+      if (digit < 0) {
+        digit += 10;
+        buf = -1;
+      }
+      a.integer[i] = digit;
+    }
+  }
+
+  static bool NonZero(const std::vector<int>& v) {
+    for (int x : v) {
+      if (x != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static void ReducePrecision(BCD& a, int offset) {
+    for (int i = 0; i < offset && a.precision > 0 && !a.fractional.empty();
+         ++i) {
+      --a.precision;
+      a.fractional.pop_back();
+    }
+  }
+
+  static std::vector<int> AbsMul(const BCD& a, const BCD& b, int com_prec) {
+    size_t frac_a = std::min<int>(com_prec, a.fractional.size());
+    size_t frac_b = std::min<int>(com_prec, b.fractional.size());
+    size_t a_size = int_size + frac_a;
+    size_t b_size = int_size + frac_b;
+    size_t size_ans = a_size + b_size;
+
+    std::vector<int> whole_res(size_ans, 0);
+    std::vector<int> whole_a(a_size, 0);
+    std::vector<int> whole_b(b_size, 0);
+
+    for (size_t i = 0; i < int_size; ++i) {
+      whole_a[i] = a.integer[i];
+    }
+    for (size_t i = 0; i < frac_a; ++i) {
+      whole_a[int_size + i] = a.fractional[i];
+    }
+    for (size_t i = 0; i < int_size; ++i) {
+      whole_b[i] = b.integer[i];
+    }
+    for (size_t i = 0; i < frac_b; ++i) {
+      whole_b[int_size + i] = b.fractional[i];
+    }
+
+    for (int i = static_cast<int>(a_size) - 1; i >= 0; --i) {
+      int buf = 0;
+      for (int j = static_cast<int>(b_size) - 1; j >= 0; --j) {
+        int pos = i + j + 1;
+        int digit = whole_res[pos] + whole_a[i] * whole_b[j] + buf;
+        whole_res[pos] = digit % 10;
+        buf = digit / 10;
+      }
+      whole_res[i] += buf;
+    }
+    return whole_res;
+  }
+
+ public:
+
+   // BCD(int prec) : precision(prec) { fractional.assign(prec, 0); }
+
+   BCD(int v, int prec = 0) : precision(prec) {
+     sign = (v < 0);
+     if (v < 0) {
+       v = -v;
+     }
+     for (int i = 0; i < int_size; ++i) {
+       integer[i] = 0;
+     }
+     fractional.assign(prec, 0);
+     int pos = int_size - 1;
+     while (v > 0 && pos >= 0) {
+       integer[pos] = v % 10;
+       v /= 10;
+       --pos;
+     }
+   }
+
+   BCD() = default;
+
+   BCD(const std::string& s) {
+     sign = false;
+     precision = 0;
+     fractional.clear();
+
+     for (int i = 0; i < int_size; ++i) integer[i] = 0;
+     size_t pos = 0;
+     if (pos < s.size() && (s[pos] == '+' || s[pos] == '-')) {
+       if (s[pos] == '-') sign = true;
+       ++pos;
+     }
+
+     size_t dot = s.find('.', pos);
+     std::string int_part;
+     std::string frac_part;
+     if (dot == std::string::npos) {
+       int_part = s.substr(pos);
+     } else {
+       int_part = s.substr(pos, dot - pos);
+       frac_part = s.substr(dot + 1);
+     }
+
+     size_t first_non_zero = 0;
+     while (first_non_zero + 1 < int_part.size() &&
+            int_part[first_non_zero] == '0')
+       ++first_non_zero;
+     int_part = int_part.substr(first_non_zero);
+
+     if (int_part.size() > int_size) {
+       throw IntegerPartOverflow();
+     }
+
+     int idx = int_size - 1;
+     for (int i = static_cast<int>(int_part.size()) - 1; i >= 0 && idx >= 0; --i, --idx) {
+       integer[idx] = int_part[i] - '0';
+     }
+
+     precision = static_cast<int>(frac_part.size());
+     fractional.assign(precision, 0);
+     for (int i = 0; i < precision; ++i) {
+       fractional[i] = frac_part[i] - '0';
+     }
+   }
+
+  bool operator==(const BCD& other) const {
+    if (sign != other.sign) {
+      return false;
+    }
+
+    for (int i = 0; i < int_size; ++i) {
+      if (integer[i] != other.integer[i]) {
+        return false;
+      }
+    }
+
+    int com_precision = std::min(precision, other.precision);
+    for (size_t i = 0; i < com_precision; ++i) {
+      if (fractional[i] != other.fractional[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool operator!=(const BCD& other) const { return !((*this) == other); }
+
+  bool operator<(const BCD& other) const {
+    if (sign != other.sign) {
+      return sign;
+    }
+    if (sign) {
+      return AbsLess(other,*this);
+    }
+    return AbsLess(*this, other);
+  }
+
+  bool operator<=(const BCD& other) const {
+    return (*this) < other || (*this) == other;
+  }
+
+  bool operator>(const BCD& other) const { return other < (*this); }
+
+  bool operator>=(const BCD& other) const {
+    return (*this) > other || (*this) == other;
+  }
+
+  BCD operator-() const {
+    BCD res = *this;
+    res.sign = !sign;
+    return res;
+  }
+
+  BCD operator+() const { return *this; }
+
+  BCD& operator+=(const BCD& other) {
+    int com_prec = std::min(precision, other.precision);
+
+    if (sign == other.sign) {
+      AbsUnoAdd(*this, other, com_prec);
+
+    } else {
+      if (AbsLess(*this, other)) {
+        BCD tmp = other;
+        AbsUnoSubstruct(tmp, *this, com_prec);
+        *this = tmp;
+
+      } else {
+        AbsUnoSubstruct(*this, other, com_prec);
+      }
+    }
+    // ReducePrecision(*this, 1);
+    return *this;
+  }
+
+  BCD operator+(const BCD& other) const {
+    BCD res = *this;
+    res += other;
+    return res;
+  }
+
+  BCD& operator-=(const BCD& other) {
+    return *this += (-other);
+  }
+
+  BCD operator-(const BCD& other) const {
+    BCD res = *this;
+    res -= other;
+    return res;
+  }
+
+  BCD operator*(const BCD& other) const {
+    int com_prec = std::min(precision, other.precision);
+    int za = 0;
+    while (za < int_size && integer[za] == 0) ++za;
+    int size_a = (za == int_size ? 1 : int_size - za);
+    int zb = 0;
+    while (zb < int_size && other.integer[zb] == 0) ++zb;
+    int size_b = (zb == int_size ? 1 : int_size - zb);
+
+    if (size_a + size_b > int_size) {
+      throw IntegerPartOverflow();
+    }
+
+    int res_prec = com_prec - std::max(size_a, size_b) - 1;
+    if (res_prec < 0) res_prec = 0;
+    BCD res(0, com_prec);
+    res.sign = sign ^ other.sign;
+
+    std::vector<int> whole_res = AbsMul(*this, other, com_prec);
+    int whole_size = static_cast<int>(whole_res.size());
+
+    int frac_a = std::min<int>(com_prec, (int)fractional.size());
+    int frac_b = std::min<int>(com_prec, (int)other.fractional.size());
+    int frac_size = frac_a + frac_b;
+
+    for (int i = 0; i < int_size; ++i) {
+      res.integer[i] = 0;
+    }
+    res.fractional.assign(com_prec, 0);
+
+    int frac_start = whole_size - frac_size;
+    for (int i = 0; i < com_prec && i < frac_size; ++i) {
+      res.fractional[i] = whole_res[frac_start + i];
+    }
+
+
+    int dest = int_size - 1;
+    for (int i = frac_start - 1; i >= 0 && dest >= 0; --i, --dest) {
+      res.integer[dest] = whole_res[i];
+    }
+
+    return res;
+  }
+
+  BCD& operator*=(const BCD& other) { return *this = *this * other;}
+
+  bool isZero() const {
+    for (int i = 0; i < int_size; ++i)
+      if (integer[i] != 0) return false;
+    for (int d : fractional)
+      if (d != 0) return false;
+    return true;
+  }
+
+  friend std::istream& operator>>(std::istream& is, BCD& x) {
+    std::string s;
+    is >> s;
+    x = BCD(s);
+    return is;
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const BCD& x) {
+    if (x.sign && !x.isZero()) {
+      os << '-';
+    }
+    int first = 0;
+    while (first < int_size - 1 && x.integer[first] == 0) {
+      ++first;
+    }
+    for (int i = first; i < int_size; ++i) {
+      os << x.integer[i];
+    }
+    if (x.precision > 0) {
+      os << '.';
+      int com = std::min<int>(x.precision, x.fractional.size());
+      for (int i = 0; i < com; ++i) os << x.fractional[i];
+      return os;
+    }
+    return os;
+  }
+
+  static BCD inverse(int n, int prec) {
+    BCD res(0, prec);
+    for (int i = 0; i < int_size; ++i) {
+      res.integer[i] = 0;
+    }
+    res.sign = (n < 0);
+    if (n < 0) {
+      n = -n;
+    }
+    int remainder = 1;
+    for (int i = 0; i < prec; ++i) {
+      remainder *= 10;
+      int digit = remainder / n;
+      remainder = remainder % n;
+      res.fractional[i] = digit;
+    }
+    res.precision = prec;
+    return res;
+  }
+
+  bool negligible(int prec) const {
+    for (int i = 0; i < int_size; ++i)
+      if (integer[i] != 0) {
+        return false;
+      }
+    int p = std::min(prec, static_cast<int>(fractional.size()));
+    for (int i = 0; i < p; ++i) {
+      if ((*this).fractional[i] != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  ~BCD() = default;
+
+  BCD& operator=(const BCD& other) {
+    if (this != &other) {
+      precision = other.precision;
+      sign = other.sign;
+      for (int i = 0; i < int_size; ++i) {
+        integer[i] = other.integer[i];
+      }
+      fractional = other.fractional;
+    }
+    return *this;
+  }
+
+  BCD(const BCD& other)
+      : precision(other.precision),
+        sign(other.sign),
+        fractional(other.fractional) {
+    for (int i = 0; i < int_size; ++i) {
+      integer[i] = other.integer[i];
+    }
+  }
+
+  BCD& operator=(BCD&& other) noexcept {
+    if (this != &other) {
+      for (int i = 0; i < int_size; ++i) {
+        integer[i] = other.integer[i];
+      }
+      precision = other.precision;
+      sign = other.sign;
+      fractional = std::move(other.fractional);
+    }
+    return *this;
+  }
+
+  BCD(BCD&& other) noexcept
+    : precision(other.precision),
+      sign(other.sign),
+      fractional(std::move(other.fractional)) {
+    for (int i = 0; i < int_size; ++i) {
+      integer[i] = other.integer[i];
+    }
+  }
+
+};
+
+int main() {
+  /*int prec;
+  std::cin >> prec;*/
+
+  // число е
+  int prec = 100;
+  prec += 3;
+
+  BCD inv_fact(1, prec);
+  long long k = 1;
+
+  BCD exp(0, prec);
+  exp += inv_fact;
+
+  while (true) {
+    BCD inv_k = BCD::inverse((int)k, prec);
+    inv_fact *= inv_k;
+
+    if (inv_fact.negligible(prec)) {
+      break;
+    }
+
+    exp += inv_fact;
+    ++k;
+  }
+  std::cout << exp << '\n';
+
+  try {
+    BCD("12345678.123") * BCD("98765432");
+  } catch (const IntegerPartOverflow& e) {
+    std::cout << e.what() << '\n';
+  }
+
+  try {
+    BCD("123457869869678.123");
+  } catch (const IntegerPartOverflow& e) {
+    std::cout << e.what() << '\n';
+  }
+
+  BCD a;
+  BCD b;
+  std::cin >> a >> b;
+  std::cout << a + b << '\n';
+  std::cout << a * b << '\n';
+
+  BCD c = a;
+  b = c;
+}
