@@ -1,3 +1,5 @@
+// дз 3 задание 1 состоит из файлов фигур, которые в папке Figures_1 лежат
+
 #include <iostream>
 #include <vector>
 #include "Ellipse.cpp"
